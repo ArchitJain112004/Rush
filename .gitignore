@@ -1,0 +1,21 @@
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Node stuff (if you ever use it later)
+node_modules/
+npm-debug.log*
+
+# Build outputs
+dist/
+build/
+*.zip
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
