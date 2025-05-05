@@ -1,16 +1,15 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "autofill") {
     chrome.storage.local.get(null, (data) => {
-      autofillAllFields(document, data);
+      waitForFormAndAutofill(document, data);
 
       const iframes = document.querySelectorAll("iframe");
       for (const iframe of iframes) {
         try {
           const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-          if (iframeDoc) autofillAllFields(iframeDoc, data);
+          if (iframeDoc) waitForFormAndAutofill(iframeDoc, data);
         } catch (e) {
-          const src = iframe.src || "unknown source";
-          console.debug(`🔒 Skipped cross-origin iframe: ${src}`);
+          console.warn("Cross-origin iframe skipped:", e.message);
         }
       }
 
@@ -19,6 +18,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
+
+// Wait until form elements are visible before autofilling
+function waitForFormAndAutofill(root, data) {
+  const observer = new MutationObserver(() => {
+    const elements = getAllElementsIncludingShadow(root);
+    if (elements.length >= 3) {
+      observer.disconnect();
+      autofillAllFields(root, data);
+    }
+  });
+
+  observer.observe(root.body || root, { childList: true, subtree: true });
+}
 
 function autofillAllFields(root, data) {
   const elements = getAllElementsIncludingShadow(root);
@@ -37,8 +49,10 @@ function autofillAllFields(root, data) {
       ) {
         field.focus();
         field.value = value;
+
         field.dispatchEvent(new Event("input", { bubbles: true }));
         field.dispatchEvent(new Event("change", { bubbles: true }));
+
         console.log(`✅ Autofilled [${identifier}] with: ${value}`);
         break;
       }
@@ -86,7 +100,6 @@ function getFieldIdentifier(field) {
     if (label) identifier = label;
   }
 
-  // Fallback: scrape inner text from container
   if (!identifier) {
     const parent = field.closest("div");
     if (parent) {
